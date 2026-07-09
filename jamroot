@@ -1,6 +1,6 @@
-constant name : askits ;
+constant name : askit ;
 
 echo "Build $(name) ..." ;
 
-build-project askits ;
+build-project askit ;
 
