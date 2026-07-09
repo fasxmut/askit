@@ -1,0 +1,10 @@
+constant name : askits/askits/sdv1 ;
+
+echo "Build $(name) ..." ;
+
+lib boost_filesystem ;
+lib boost_process ;
+alias deps : boost_filesystem boost_process ;
+
+exe sdv1 : sdv1.cpp : <library>deps : <cxxstd>26 ;
+

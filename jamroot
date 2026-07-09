@@ -1,0 +1,6 @@
+constant name : askits ;
+
+echo "Build $(name) ..." ;
+
+build-project askits ;
+

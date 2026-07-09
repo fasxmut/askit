@@ -1,0 +1,13 @@
+constant name : askits/askits ;
+
+echo "Build $(name) ..." ;
+
+projects =
+	sdv1
+;
+
+for prj in $(projects)
+{
+	build-project $(prj) ;
+}
+
