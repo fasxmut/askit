@@ -108,7 +108,7 @@ namespace sdv1
 						else
 						{
 							throw std::runtime_error{
-								"Error: -d requires a destination, a cmd, a subcmd"s
+								"Error: -d requires a cmd, a subcmd, a destination"s
 									+
 								"\n\n"
 							};
@@ -121,7 +121,7 @@ namespace sdv1
 						else
 						{
 							throw std::runtime_error{
-								"Error: -d requires a destination, a cmd, a subcmd"s
+								"Error: -d requires a cmd, a subcmd, a destination"s
 									+
 								"\n\n"
 							};
@@ -134,7 +134,7 @@ namespace sdv1
 						else
 						{
 							throw std::runtime_error{
-								"Error: -d requires a destination, a cmd, a subcmd"s
+								"Error: -d requires a cmd, a subcmd, a destination"s
 									+
 								"\n\n"
 							};
