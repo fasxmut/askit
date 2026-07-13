@@ -1,0 +1,19 @@
+constant name : askit/askit/sopv ;
+
+echo "Build $(name) ..." ;
+
+project
+	$(name)
+:
+	default-build
+		<cxxstd>26
+;
+
+exe
+	sopv
+:
+	main.cpp
+	url.cpp
+	string.cpp
+;
+
