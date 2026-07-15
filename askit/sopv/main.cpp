@@ -830,7 +830,6 @@ namespace sopv::net
 			request.method(method);
 			request.set(http::field::host, (std::ostringstream{} << __connected_ep).str());
 			request.set(http::field::user_agent, "c++ sopv json-rpc client");
-			std::cout << "*****content type: " << __args->content_type() << std::endl;
 			request.set(http::field::content_type, __args->content_type());
 			request.body() = __args->json_string();
 			request.prepare_payload();
