@@ -1,0 +1,6 @@
+constant name : askit/askit/asidt ;
+
+echo "Build $(name) ..." ;
+
+exe asidt : asidt.cpp : : <cxxstd>26 ;
+

@@ -5,6 +5,7 @@ echo "Build $(name) ..." ;
 projects =
 	sdv1
 	sopv
+	asidt
 ;
 
 for prj in $(projects)
