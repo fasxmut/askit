@@ -327,9 +327,15 @@ namespace dmm
 						this->move(source, work);
 				}
 				this->restart();
+				std::clog << "Waiting hours: " << hours << std::endl;
 				std::this_thread::sleep_for(std::chrono::hours(hours));
+				std::clog << "Waiting minutes: " << minutes << std::endl;
 				std::this_thread::sleep_for(std::chrono::minutes(minutes));
+				std::clog << "Waiting fixed seconds: " << seconds << std::endl;
 				std::this_thread::sleep_for(std::chrono::seconds(seconds));
+				random_seconds = this->get_random_seconds();
+				std::clog << "Waiting random seconds: " << random_seconds << std::endl;
+				std::this_thread::sleep_for(std::chrono::seconds(random_seconds));
 			}
 		}
 	private:
@@ -386,7 +392,7 @@ namespace dmm
 
 			// stop cmd
 			{
-				std::clog << "Re-killing " << cmd << ", wait ...  ";
+				std::clog << "Re-killing " << cmd << ", wait ...\n";
 				for (int i=0; i<20; ++i)
 				{
 					asio::thread_pool pool;
@@ -405,7 +411,9 @@ namespace dmm
 						<< std::flush;
 					std::this_thread::sleep_for(std::chrono::milliseconds(100));
 				}
-				std::clog << "\n\nNote: Killing finished!\n" << std::endl;
+				std::clog << "\n\nNote: Killing finished!  " << dmm::now{}()
+					<< std::endl
+					<< std::endl;
 			}
 
 			// start cmd
