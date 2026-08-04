@@ -2,6 +2,13 @@ constant name : askit/askit ;
 
 echo "Build $(name) ..." ;
 
+project
+	$(name)
+:
+	default-build
+		<cxxstd>26
+;
+
 projects =
 	sdv1
 	sopv

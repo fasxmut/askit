@@ -2,13 +2,6 @@ constant name : $(name)/sopv ;
 
 echo "Build $(name) ..." ;
 
-project
-	$(name)
-:
-	default-build
-		<cxxstd>26
-;
-
 exe
 	sopv
 :

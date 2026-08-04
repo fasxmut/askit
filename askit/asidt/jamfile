@@ -2,5 +2,5 @@ constant name : $(name)/asidt ;
 
 echo "Build $(name) ..." ;
 
-exe asidt : asidt.cpp : : <cxxstd>26 ;
+exe asidt : asidt.cpp ;
 

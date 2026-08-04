@@ -6,5 +6,5 @@ lib boost_filesystem ;
 lib boost_process ;
 alias deps : boost_filesystem boost_process ;
 
-exe dmm : dmm.cpp : <library>deps : <cxxstd>26 ;
+exe dmm : dmm.cpp : <library>deps ;
 
