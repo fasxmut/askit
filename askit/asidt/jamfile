@@ -1,4 +1,4 @@
-constant name : askit/askit/asidt ;
+constant name : $(name)/asidt ;
 
 echo "Build $(name) ..." ;
 

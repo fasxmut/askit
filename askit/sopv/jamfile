@@ -1,4 +1,4 @@
-constant name : askit/askit/sopv ;
+constant name : $(name)/sopv ;
 
 echo "Build $(name) ..." ;
 
