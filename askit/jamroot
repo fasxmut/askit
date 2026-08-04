@@ -6,6 +6,7 @@ projects =
 	sdv1
 	sopv
 	asidt
+	dmm
 ;
 
 for prj in $(projects)
