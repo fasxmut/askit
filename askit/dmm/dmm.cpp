@@ -234,7 +234,7 @@ namespace dmm
 			}
 
 			{
-				double real_hours = hours + minutes / 60.0 + seconds / 360.0;
+				double real_hours = hours + minutes / 60.0 + seconds / 3600.0;
 				const double min = 2.0, max = 4.0;
 				if (real_hours < min || real_hours > max)
 				{
