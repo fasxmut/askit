@@ -1,0 +1,10 @@
+constant name : $(name)/dperm ;
+
+echo "Build $(name) ..." ;
+
+lib boost_filesystem ;
+lib boost_process ;
+alias deps : boost_filesystem boost_process ;
+
+exe dperm : dperm.cpp : <library>deps ;
+
