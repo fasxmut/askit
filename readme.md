@@ -31,3 +31,8 @@ Dmm
 
 Dear Manager of Process: dmm is a c++ program to manage process.
 
+Dperm
+----------------------------------------
+
+Change permissions of many files to default permissions, written in c++ std::filesystem.
+
