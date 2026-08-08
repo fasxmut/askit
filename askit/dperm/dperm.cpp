@@ -21,6 +21,8 @@ namespace fs = std::filesystem;
 namespace bpp = boost::process;
 namespace asio = boost::asio;
 
+// todo: rewrite this file.
+
 //////////////////////////////////////////////////////////////////////
 
 namespace dperm
@@ -560,6 +562,7 @@ namespace dperm
 	private:
 		void check_path_list() const
 		{
+			// path is got from command args, just throw exception if it does not exist.
 			for (const fs::path & path: * __path_list)
 				if (! fs::exists(path))
 					throw dperm::error_prompt_help_exception{
@@ -649,10 +652,11 @@ namespace dperm
 	private:
 		void list_i(const fs::path & path)
 		{
-			// ignore, not throw
+			// Some program might add/remove dynamic active files on fly, skip the path.
 			if (! fs::exists(path))
 				return;
 
+			// ignore, not throw
 			if (fs::is_symlink(path))
 			{
 				// symlink will be not processed or followed
@@ -756,6 +760,13 @@ namespace dperm
 					<< std::endl;
 			for (const fs::path & path: __path_list)
 			{
+				// Some program might add/remove dynamic active files on fly, skip the path.
+				if (! fs::exists(path))
+				{
+					std::clog << "Skip a path which is removed by other program: "
+						<< path << std::endl;
+					continue;
+				}
 				const std::string owner = this->get_path_owner(path);
 				if (owner != __whoami)
 				{
@@ -806,12 +817,34 @@ namespace dperm
 			}
 		}
 	private:
+		void do_permissions(
+			const fs::path & path,
+			const fs::perms perms,
+			const fs::perm_options p_opts,
+			std::error_code & ec
+		) const
+		{
+			// Some program might add/remove dynamic active files on fly, skip the path.
+			if (! fs::exists(path))
+			{
+				ec.clear();
+				// contract_assert no error
+				contract_assert(! ec);
+				std::clog << "Permission set skipped for removed path: " << path << std::endl;
+				return;
+			}
+			else
+			{
+				fs::permissions(path, perms, p_opts, ec);
+			}
+		}
+	private:
 		void do_def(const fs::path & path) const
 		{
 			if (fs::is_directory(path))
 			{
 				std::error_code ec;
-				fs::permissions(
+				this->do_permissions(
 					path,
 					fs::perms::owner_exec | fs::perms::owner_read | fs::perms::owner_write
 					|
@@ -866,7 +899,7 @@ namespace dperm
 
 				{
 					std::error_code ec;
-					fs::permissions(
+					this->do_permissions(
 						path,
 						perms,
 						fs::perm_options::replace,
@@ -922,7 +955,7 @@ namespace dperm
 
 			{
 				std::error_code ec;
-				fs::permissions(
+				this->do_permissions(
 					path,
 					newp,
 					fs::perm_options::replace,
@@ -963,7 +996,7 @@ namespace dperm
 
 			{
 				std::error_code ec;
-				fs::permissions(
+				this->do_permissions(
 					path,
 					perms,
 					fs::perm_options::remove,
