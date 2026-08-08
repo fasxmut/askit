@@ -21,8 +21,6 @@ namespace fs = std::filesystem;
 namespace bpp = boost::process;
 namespace asio = boost::asio;
 
-// todo: rewrite this file.
-
 //////////////////////////////////////////////////////////////////////
 
 namespace dperm
@@ -1077,9 +1075,10 @@ std::string dperm::help::help_info() const
 					group's permissions copy from others';
 
 			-r	--- Remove Exec permission for a file:
-				Do -r or -i first, then do -r for a file; directory is not a file;
+				Do -d or -i first, then do -r for a file; directory is not a file;
 
-			-ro	--- Remove exec permissoin only, other options -d, -i, -r are false;
+			-ro	--- Remove exec permission only if it is a file (directory is not a file),
+						other permissions keep unchanged;
 
 			Default: -d;
 
