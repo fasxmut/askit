@@ -389,8 +389,6 @@ namespace dperm
 		bool __r_opt;
 		bool __ro_opt;
 		bool __verbose;
-		bool __ls;
-		bool __ln;
 		dperm::mode __mode;
 		std::shared_ptr<std::set<fs::path>> __path_list;
 	public:
@@ -405,8 +403,6 @@ namespace dperm
 			__i_opt{false},
 			__r_opt{false},
 			__verbose{false},
-			__ls{false},
-			__ln{false},
 			__mode{dperm::mode::none},
 			__path_list{
 				std::make_shared<
@@ -434,16 +430,6 @@ namespace dperm
 			return __verbose;
 		}
 	public:
-		const bool ls() const
-		{
-			return __ls;
-		}
-	public:
-		const bool ln() const
-		{
-			return __ln;
-		}
-	public:
 		const std::shared_ptr<std::set<fs::path>> path_list() const
 		{
 			return __path_list;
@@ -459,9 +445,7 @@ namespace dperm
 				bool c3 = this->set_mode(t, "-r", __r_opt);
 				bool c4 = this->set_mode(t, "-ro", __ro_opt);
 				bool c5 = this->set_mode(t, "-v", __verbose);
-				bool c6 = this->set_mode(t, "-ls", __ls);
-				bool c7 = this->set_mode(t, "-ln", __ln);
-				bool consumed = c1 || c2 || c3 || c4 || c5 || c6 || c7;
+				bool consumed = c1 || c2 || c3 || c4 || c5;
 				if (! consumed)
 				{
 					const std::string pp = dperm::str_man::normalize_path(t);
@@ -648,19 +632,9 @@ namespace dperm
 
 			this->list_all_paths();
 
-			bool ls_mod = false;
-			bool  ln_mod = false;
-			// this->if_ls() is optional, if "list symlink" feature is not enabled.
-			ls_mod = this->if_ls();
-
 			__whoami = this->get_whoami();
 
-			// this->check_path_owner() is always required,
-			//	whenever "list non-owned" feature is enabled.
-			ln_mod = this->check_path_owner();
-
-			if (ls_mod || ln_mod)
-				return;
+			this->check_path_owner();
 
 			this->change_perms();
 		}
@@ -775,61 +749,28 @@ namespace dperm
 			return dperm::str_man::bare(result);
 		}
 	private:
-		// Return true: ln mode
-		bool check_path_owner() const
+		void check_path_owner() const
 		{
 			if (__args->verbose())
 				std::clog << "__whoami: " << dperm::str_man::quoted(__whoami, true)
 					<< std::endl;
-			int ln_counter = 0;
 			for (const fs::path & path: __path_list)
 			{
 				const std::string owner = this->get_path_owner(path);
 				if (owner != __whoami)
 				{
-					if (__args->ln())
-					{
-						std::cout << dperm::str_man::quoted(path, true) << std::endl;
-						++ln_counter;
-					}
-					else
-					{
-						throw dperm::fatal_error{
-							"Path list contains a path which is not owned by you: "s
-							+
-							dperm::str_man::quoted(path, true) + "\n"
-							+
-							"Path Owner: " + dperm::str_man::quoted(owner, false) + "\n"
-							+
-							"But you are: " + dperm::str_man::quoted(__whoami, false)
-						};
-					}
+					throw dperm::fatal_error{
+						"Path list contains a path which is not owned by you: "s
+						+
+						dperm::str_man::quoted(path, true) + "\n"
+						+
+						"Path Owner: " + dperm::str_man::quoted(owner, false) + "\n"
+						+
+						"But you are: " + dperm::str_man::quoted(__whoami, false)
+					};
 				}
 			}
-			if (__args->ln())
-			{
-				if (ln_counter < 1)
-					std::cout << "No Non-owned" << std::endl;
-				return true;
-			}
-			return false;
 		}	// Method: .check_path_owner
-
-	private:
-		bool if_ls() const
-		{
-			if (__args->ls())
-			{
-				if (__symlink_list.size() < 1u)
-					std::cout << "No Symlink" << std::endl;
-				for (const auto & sl: __symlink_list)
-				{
-					std::cout << dperm::str_man::quoted(sl, true) << std::endl;
-				}
-				return true;
-			}
-			return false;
-		}
 
 	private:
 		void change_perms() const
@@ -1083,7 +1024,7 @@ std::string dperm::help::help_info() const
 
 		Command:
 
-		dperm [-v] [-ls] [-ln] [-d|-i] [-r] [-ro] <path list>
+		dperm [-v] [-d|-i] [-r] [-ro] <path list>
 		dperm [-h|--h|-help|--help|help]
 
 		options:
@@ -1106,10 +1047,6 @@ std::string dperm::help::help_info() const
 				Do -r or -i first, then do -r for a file; directory is not a file;
 
 			-ro	--- Remove exec permissoin only, other options -d, -i, -r are false;
-
-			-ls	--- list symlinks and quit;
-
-			-ln	--- list not owned paths and quit;
 
 			Default: -d;
 
