@@ -625,8 +625,8 @@ namespace dperm
 		// input
 		std::shared_ptr<dperm::args> __args;
 	private:
-		std::set<fs::path> __path_list;
-		std::set<fs::path> __symlink_list;
+		std::vector<fs::path> __path_list;
+		std::vector<fs::path> __symlink_list;
 	private:
 		std::string __whoami;
 	public:
@@ -675,19 +675,20 @@ namespace dperm
 	private:
 		void list_i(const fs::path & path)
 		{
+			// ignore, not throw
 			if (! fs::exists(path))
 				return;
 
 			if (fs::is_symlink(path))
 			{
 				// symlink will be not processed or followed
-				__symlink_list.emplace(dperm::str_man::normalize_path(path.string()));
+				__symlink_list.emplace_back(dperm::str_man::normalize_path(path.string()));
 				return;
 			}
 
 			// else
 
-			__path_list.emplace(dperm::str_man::normalize_path(path.string()));
+			__path_list.emplace_back(dperm::str_man::normalize_path(path.string()));
 
 			if (fs::is_directory(path))
 			{
