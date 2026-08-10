@@ -4,3 +4,6 @@ echo "Build $(name) ..." ;
 
 build-project askit ;
 
+alias install : ./askit//install ;
+explicit install ;
+

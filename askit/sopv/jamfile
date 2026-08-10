@@ -10,3 +10,12 @@ exe
 	string.cpp
 ;
 
+install
+	install
+:
+	sopv
+:
+	<location>$(prefix)/bin/
+;
+explicit install ;
+

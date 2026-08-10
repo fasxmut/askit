@@ -1,0 +1,48 @@
+constant name : askit/askit ;
+
+echo "Build $(name) ..." ;
+
+project
+	$(name)
+:
+	default-build
+		<cxxstd>26
+;
+
+projects =
+	sdv1
+	sopv
+	asidt
+	dmm
+	dperm
+;
+
+for prj in $(projects)
+{
+	build-project $(prj) ;
+}
+
+rule get-prefix ( )
+{
+	local prefix = [ option.get prefix ] ;
+	if ! $(prefix)
+	{
+		return /usr/local ;
+	}
+	else
+	{
+		return $(prefix) ;
+	}
+}
+
+constant prefix : [ get-prefix ] ;
+
+echo "prefix => $(prefix)" ;
+
+alias
+	install
+:
+	$(projects)//install
+;
+explicit install ;
+

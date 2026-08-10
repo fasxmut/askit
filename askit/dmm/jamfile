@@ -8,3 +8,12 @@ alias deps : boost_filesystem boost_process ;
 
 exe dmm : dmm.cpp : <library>deps ;
 
+install
+	install
+:
+	dmm
+:
+	<location>$(prefix)/bin/
+;
+explicit install ;
+

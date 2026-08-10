@@ -4,3 +4,12 @@ echo "Build $(name) ..." ;
 
 exe asidt : asidt.cpp ;
 
+install
+	install
+:
+	asidt
+:
+	<location>$(prefix)/bin/
+;
+explicit install ;
+

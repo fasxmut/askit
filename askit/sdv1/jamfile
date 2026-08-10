@@ -8,3 +8,12 @@ alias deps : boost_filesystem boost_process ;
 
 exe sdv1 : sdv1.cpp : <library>deps ;
 
+install
+	install
+:
+	sdv1
+:
+	<location>$(prefix)/bin/
+;
+explicit install ;
+

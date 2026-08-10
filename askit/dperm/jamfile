@@ -8,3 +8,12 @@ alias deps : boost_filesystem boost_process ;
 
 exe dperm : dperm.cpp : <library>deps ;
 
+install
+	install
+:
+	dperm
+:
+	<location>$(prefix)/bin/
+;
+explicit install ;
+
