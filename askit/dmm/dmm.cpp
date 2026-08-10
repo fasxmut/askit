@@ -316,7 +316,7 @@ namespace dmm
 					std::clog << "Task is already finished!" << std::endl;
 					return;
 				}
-				if (dmm::rng()%2 == 0)
+				if (dmm::rng()%3 == 0)
 				{
 					if (! this->move(source, work))
 						this->move(work, upgrade);
