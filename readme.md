@@ -11,6 +11,22 @@ boost libraries, boost filesystem, boost process, boost asio, boost beast
 
 botan c++ libraries
 
+#### Please enable c++ reflection and contracts,
+
+The project itself does not take the responsibility for enabling them.
+
+Enable them at `/etc/site-config.jam` :
+
+```
+using gcc : : : <cxxflags>"-freflection -fcontracts" <linkflags>"-fcontracts" ;
+
+project
+:
+	default-build
+		<cxxstd>26
+;
+```
+
 Sopv
 ----------------------------------------
 
@@ -35,4 +51,8 @@ Dperm
 ----------------------------------------
 
 Change permissions of many files to default permissions, written in c++ std::filesystem.
+
+#### Dperm Disclaimer:
+* Do not use this program to change system files permissions, such as /etc, /bin ; or take it at your own risk .
+* Developer(s) does not take any responsibility for any damage or loss .
 

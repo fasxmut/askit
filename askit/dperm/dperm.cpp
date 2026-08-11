@@ -1053,6 +1053,11 @@ std::string dperm::help::help_info() const
 		" dperm -- change to default permssions for lots of paths.
 		""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
+		Disclaimer:
+			* Do not use this program to change system files permissions, such as /etc, /bin ;
+				or take it at your own risk.
+			* Developer(s) does not take any responsibility for any damage or loss .
+
 		Command:
 
 		dperm [-v] [-d|-i] [-r] [-ro] <path list>
