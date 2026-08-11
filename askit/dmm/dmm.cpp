@@ -316,6 +316,12 @@ namespace dmm
 					std::clog << "Task is already finished!" << std::endl;
 					return;
 				}
+#if true
+				{
+					if (! this->move(work, upgrade))
+						this->move(source, work);
+				}
+#else
 				if (dmm::rng()%3 == 0)
 				{
 					if (! this->move(source, work))
@@ -326,6 +332,7 @@ namespace dmm
 					if (! this->move(work, upgrade))
 						this->move(source, work);
 				}
+#endif
 				this->restart();
 				std::clog << "Waiting hours: " << hours << std::endl;
 				std::this_thread::sleep_for(std::chrono::hours(hours));
