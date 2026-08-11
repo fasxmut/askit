@@ -17,6 +17,7 @@
 #include <thread>
 #include <chrono>
 #include <boost/asio.hpp>
+#include <stdfloat>
 
 using std::string_literals::operator""s;
 namespace fs = std::filesystem;
@@ -25,6 +26,11 @@ namespace asio = boost::asio;
 
 namespace dmm
 {
+	const std::float32_t min_hours = 2;
+	const std::float32_t max_hours = 4;
+	const int limit_high_secs = 1200;
+	const int limit_low_secs = 600;
+
 	std::mt19937 rng{std::random_device{}()};
 
 	class quoted
@@ -40,8 +46,8 @@ namespace dmm
 
 	enum class exc_action
 	{
-		show_help,
-		show_error_and_help
+		error,
+		show_help
 	};
 
 	class dmm_error
@@ -118,7 +124,7 @@ namespace dmm
 				if (__args.size() != 7u)
 				{
 					throw dmm::dmm_error{
-						dmm::exc_action::show_error_and_help,
+						dmm::exc_action::error,
 						"Requires exactly 6 args!"
 					};
 				}
@@ -131,7 +137,7 @@ namespace dmm
 					if (! fs::is_directory(__args[i]))
 					{
 						throw dmm::dmm_error{
-							dmm::exc_action::show_error_and_help,
+							dmm::exc_action::error,
 							"Not an existed directory: "s
 								+
 							dmm::quoted{}(__args[i])
@@ -149,7 +155,7 @@ namespace dmm
 			if (source == work || source == upgrade || work == upgrade)
 			{
 				throw dmm::dmm_error{
-					dmm::exc_action::show_error_and_help,
+					dmm::exc_action::error,
 					"Requires source-dir, work-dir, and upgrade-dir not the same dir!"
 				};
 			}
@@ -162,7 +168,7 @@ namespace dmm
 			if (cmd_exec.empty())
 			{
 				throw dmm::dmm_error{
-					dmm::exc_action::show_error_and_help,
+					dmm::exc_action::error,
 					"Command not found: "s + dmm::quoted{}(cmd)
 				};
 			}
@@ -171,7 +177,7 @@ namespace dmm
 			if (killall.empty())
 			{
 				throw dmm::dmm_error{
-					dmm::exc_action::show_error_and_help,
+					dmm::exc_action::error,
 					"Command not found: "s + dmm::quoted{}("killall")
 				};
 			}
@@ -199,7 +205,7 @@ namespace dmm
 			catch (const std::string & e)
 			{
 				throw dmm::dmm_error{
-					dmm::exc_action::show_error_and_help,
+					dmm::exc_action::error,
 					"Time format error: conversion error: "s + dmm::quoted{}(str) + "\t" + e
 				};
 			}
@@ -213,7 +219,7 @@ namespace dmm
 			bool status = std::regex_match(__args[4], sm, re);
 			if (! status)
 				throw dmm::dmm_error{
-					dmm::exc_action::show_error_and_help,
+					dmm::exc_action::error,
 					"<time interval> format Error!"
 				};
 			int hours{0}, minutes{0}, seconds{0};
@@ -234,17 +240,16 @@ namespace dmm
 			}
 
 			{
-				double real_hours = hours + minutes / 60.0 + seconds / 3600.0;
-				const double min = 2.0, max = 4.0;
-				if (real_hours < min || real_hours > max)
+				std::float32_t real_hours = hours + minutes / 60.0f32 + seconds / 3600.0f32;
+				if (real_hours < dmm::min_hours || real_hours > dmm::max_hours)
 				{
 					throw dmm::dmm_error{
-						dmm::exc_action::show_error_and_help,
+						dmm::exc_action::error,
 						"Time limit:\n"s
 							+
-						"Min hours: "s + std::to_string(min) + "\n"
+						"Min hours: "s + std::to_string(dmm::min_hours) + "\n"
 							+
-						"Max hours: "s + std::to_string(max)
+						"Max hours: "s + std::to_string(dmm::max_hours)
 					};
 				}
 			}
@@ -260,19 +265,21 @@ namespace dmm
 		{
 			{
 				int max_random_seconds = this->stoi(__args[5]);
-				const int max = 1200;
-				const int min = 600;
-				if (max_random_seconds < min || max_random_seconds > max)
+				if (
+					max_random_seconds < dmm::limit_low_secs
+					||
+					max_random_seconds > dmm::limit_high_secs
+				)
 				{
 					throw dmm::dmm_error{
-						dmm::exc_action::show_error_and_help,
+						dmm::exc_action::error,
 						"ERROR: Requires "s
 							+
-						std::to_string(min)
+						std::to_string(dmm::limit_high_secs)
 							+
 						" <=  <Max limit of random time interval>  <= "s
 							+
-						std::to_string(max) + " (seconds)"
+						std::to_string(dmm::limit_high_secs) + " (seconds)"
 					};
 				}
 				return dmm::rng() % max_random_seconds;
@@ -381,7 +388,7 @@ namespace dmm
 					msg += "  At "s + dmm::now{}();
 				}
 				throw dmm::dmm_error{
-					dmm::exc_action::show_error_and_help,
+					dmm::exc_action::error,
 					msg
 				};
 			}
@@ -456,29 +463,41 @@ namespace dmm
 	private:
 		std::string get_help_i() const
 		{
-			return R"(
-				+++++++++++++++++
-				+ dmm
-				+++++++++++++++++
-				+ Help Menu
-				+++++++++++++++++
+			return std::format(
+				R"(
+					+++++++++++++++++
+					+ dmm
+					+++++++++++++++++
+					+ Help Menu
+					+++++++++++++++++
 
-				command:
-				dmm <source dir> <work dir> <upgrade dir> <time interval> <Max limit of random time interval> <cmd>
+					command:
+					dmm <source dir> <work dir> <upgrade dir> <time interval> <Max limit of random time interval> <cmd>
 
-				<time interval> format:
-						seconds
-						minutes:seconds
-						hours:minutes:seconds
-						(only unsigned int allowed)
-					For example:
-						324            - 324 seconds
-						300:400        - 300 minutes + 400 seconds
-						300:400:500    - 300 hours + 400 minutes + 500 seconds
-				<Max limit of random time interval> format:
-						seconds
-						(only unsigned int allowed)
-			)";
+					<time interval> format:
+							seconds
+							minutes:seconds
+							hours:minutes:seconds
+							(only unsigned int allowed)
+						Limit:
+							Min: {} hours, Max: {} hours;
+
+						For example:
+							324            - 324 seconds
+							300:400        - 300 minutes + 400 seconds
+							300:400:500    - 300 hours + 400 minutes + 500 seconds
+
+					<Max limit of random time interval> format:
+							seconds
+							(only unsigned int allowed)
+						Limit low: {} secs  ,
+						Limit high: {} secs .
+				)",
+				dmm::min_hours,
+				dmm::max_hours,
+				dmm::limit_low_secs,
+				dmm::limit_high_secs
+			);
 		}
 		std::string shift(const std::string & input, int num) const
 		{
@@ -528,7 +547,7 @@ namespace dmm
 	public:
 		std::string get_help() const
 		{
-			return this->shift(this->get_help_i(), 4);
+			return this->shift(this->get_help_i(), 5);
 		}
 	};	// class dear_manager
 }	// namespace dmm
@@ -547,7 +566,7 @@ int main(int argc, char ** argv)
 		{
 			switch (e.action())
 			{
-			case dmm::exc_action::show_error_and_help:
+			case dmm::exc_action::error:
 				throw std::runtime_error{
 					"=====\n"s
 					"=====\n"s
@@ -557,8 +576,6 @@ int main(int argc, char ** argv)
 					"ERROR:\n"
 						+
 					e.what() + "\n\n"
-						+
-					dmm::dear_manager{}.get_help()
 				};
 			case dmm::exc_action::show_help:
 				throw std::runtime_error{
@@ -568,11 +585,7 @@ int main(int argc, char ** argv)
 		}
 		catch (const std::exception & e)
 		{
-			throw std::runtime_error{
-				""s + e.what() + "\n"
-					+
-				dmm::dear_manager{}.get_help()
-			};
+			throw std::runtime_error{""s + e.what()};
 		}
 		catch (...)
 		{
