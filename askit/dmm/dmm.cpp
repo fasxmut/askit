@@ -440,7 +440,17 @@ namespace dmm
 
 			fs::rename(from, to, ec);
 			if (! ec)
+			{
+				std::clog << "********\n";
+				std::clog << "********\n";
+				std::clog << "********\n";
+				std::clog << "** Moved OK:\n";
+				std::clog << "** \t" << from << " => " << to << std::endl;
+				std::clog << "********\n";
+				std::clog << "********\n";
+				std::clog << "********\n";
 				const_cast<bool &>(__rename_just_called_and_ok) = true;
+			}
 		}
 	private:
 		bool move(const std::string & from, const std::string & to) const
