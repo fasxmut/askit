@@ -422,6 +422,7 @@ namespace dmm
 							<< "\n\n"
 						;
 						ec = std::error_code{};
+						return;
 					}
 				}
 			}
