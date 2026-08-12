@@ -405,6 +405,17 @@ namespace dmm
 			return entries;
 		}
 	private:
+		// Wrap fs::lexically_normal
+		fs::path lexically_normal(const fs::path & path) const
+		{
+			std::string tmp = path.lexically_normal();
+			if (tmp != "/" && tmp.ends_with("/"))
+			{
+				tmp = tmp.substr(0, tmp.size()-1);
+			}
+			return fs::path{tmp};
+		}
+	private:
 		// Wrap fs::rename
 		void rename (const fs::path from, const fs::path to, std::error_code & ec) const
 		{
@@ -414,7 +425,7 @@ namespace dmm
 				//		fs::rename will be not executed.
 				for (const fs::path & path: __ignore_files)
 				{
-					if (path.lexically_normal() == from.lexically_normal())
+					if (this->lexically_normal(path) == this->lexically_normal(from))
 					{
 						std::clog
 							<< "\n\nOh, Note: This path is in the ignore list:\n"

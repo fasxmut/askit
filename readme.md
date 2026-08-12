@@ -27,6 +27,24 @@ project
 ;
 ```
 
+### Build:
+
+```
+b2
+```
+
+### Install:
+
+```
+b2 install --prefix=/path/to	# default: /usr/local
+```
+
+### cleanall:
+
+```
+b2 cleanall
+```
+
 Sopv
 ----------------------------------------
 
