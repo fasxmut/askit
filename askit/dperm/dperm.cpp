@@ -133,9 +133,25 @@ namespace dperm
 				return dperm::str_man::to_string(std::quoted(dperm::str_man::to_string(value)));
 		}
 	public:
-		static std::string normalize_path(const std::string & str)
+		static std::string normalize_path(const std::string & str, bool test_todo  = true)
 		{
-			std::string tmp = str;
+			std::string tmp = fs::path{str}.lexically_normal().string();
+
+			//////////
+			//////////
+			if (test_todo)
+			{
+				if (tmp.empty())
+					return tmp;
+				if (tmp == "/")
+					return tmp;
+				if (tmp.ends_with("/"))
+					tmp = tmp.substr(0, tmp.size()-1);
+				return tmp;
+			}
+			//////////
+			//////////
+
 
 			{
 				if (tmp.empty())
