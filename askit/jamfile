@@ -2,17 +2,6 @@ constant name : $(name)/askit ;
 
 echo "Build $(name) ..." ;
 
-path-constant askit-src-dir : . ;
-
-if [ MATCH ^(cleanall)$ : [ modules.peek : ARGV ] ]
-{
-	echo "cleanall ..." ;
-	cmd = "rm -rf `find $(askit-src-dir) -name bin`" ;
-	echo $(cmd) ;
-	SHELL $(cmd) ;
-	exit ;
-}
-
 project
 	$(name)
 :
