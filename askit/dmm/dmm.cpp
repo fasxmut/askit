@@ -477,14 +477,16 @@ namespace dmm
 			{
 				msg += "successful.";
 				msg += "  At "s + dmm::now{}();
+				std::clog << msg << std::endl;
+				return true;
 			}
 			else
 			{
 				msg += "ignored, rolling will be skipped to next immediately.";
 				msg += "  At "s + dmm::now{}();
+				std::clog << msg << std::endl;
+				return false;
 			}
-			std::clog << msg << std::endl;
-			return true;
 		}
 		void restart() const
 		{
