@@ -92,6 +92,9 @@ namespace dmm
 	{
 	private:
 		const std::vector<std::string> __args;
+	private:
+		std::vector<fs::path> __ignore_files{};
+		bool __rename_just_called_and_ok{false};
 	public:
 		dear_manager():
 			__args{}
@@ -102,10 +105,11 @@ namespace dmm
 		{
 		}
 	public:
-		void start() const
+		void start()
 		{
 			this->test_args();
 			this->test_dirs();
+			this->record_and_test_ignore_files();
 			this->test_cmds();
 			this->run();
 		}
@@ -121,11 +125,11 @@ namespace dmm
 					};
 				}
 
-				if (__args.size() != 7u)
+				if (__args.size() < 7u)
 				{
 					throw dmm::dmm_error{
 						dmm::exc_action::error,
-						"Requires exactly 6 args!"
+						"Requires at least 6 args!"
 					};
 				}
 			}
@@ -161,9 +165,31 @@ namespace dmm
 			}
 		}
 	private:
+		void record_and_test_ignore_files()
+		{
+			for (auto i=6u; i<__args.size()-1u; ++i)
+			{
+				__ignore_files.emplace_back(__args[i]);
+			}
+			std::clog << "Ignore Files Count: " << __ignore_files.size() << std::endl;
+			for (const auto & igfn: __ignore_files)
+			{
+				if ( ! fs::exists(igfn))
+					throw dmm::dmm_error{
+						dmm::exc_action::error,
+						"This file is set to be ignored, but it does not exist: \""s
+						+
+						igfn.string()
+						+ "\""
+					};
+				std::clog << "This file will be ignored: " << igfn << std::endl;
+			}
+			std::clog << std::endl;
+		}
+	private:
 		void test_cmds() const
 		{
-			auto cmd = __args[6];
+			auto cmd = __args[__args.size()-1];
 			auto cmd_exec = proc::environment::find_executable(cmd);
 			if (cmd_exec.empty())
 			{
@@ -314,7 +340,7 @@ namespace dmm
 			std::clog << hours << ", " << minutes << ", " << seconds << std::endl << std::endl;
 
 			int random_seconds = this->get_random_seconds();
-			std::cout << "First random_seconds:\n" << random_seconds << "\n\n";
+			std::clog << "First random_seconds:\n" << random_seconds << "\n\n";
 
 			while (true)
 			{
@@ -341,15 +367,31 @@ namespace dmm
 				}
 #endif
 				this->restart();
-				std::clog << "Waiting hours: " << hours << std::endl;
-				std::this_thread::sleep_for(std::chrono::hours(hours));
-				std::clog << "Waiting minutes: " << minutes << std::endl;
-				std::this_thread::sleep_for(std::chrono::minutes(minutes));
-				std::clog << "Waiting fixed seconds: " << seconds << std::endl;
-				std::this_thread::sleep_for(std::chrono::seconds(seconds));
-				random_seconds = this->get_random_seconds();
-				std::clog << "Waiting random seconds: " << random_seconds << std::endl;
-				std::this_thread::sleep_for(std::chrono::seconds(random_seconds));
+
+				if (__rename_just_called_and_ok)
+				{
+					const_cast<bool &>(__rename_just_called_and_ok) = false;
+
+					random_seconds = this->get_random_seconds();
+
+					std::clog
+						<< "\n\n---\n---\n"
+						<< "Next rolling after:\n\t\t"
+						<< "hours:minutes:seconds = "
+						<< hours << ":" << minutes << ":" << seconds+random_seconds
+						<< " ..."
+						<< std::endl
+					;
+
+					std::this_thread::sleep_for(std::chrono::hours(hours));
+					std::this_thread::sleep_for(std::chrono::minutes(minutes));
+					std::this_thread::sleep_for(std::chrono::seconds(seconds));
+					std::this_thread::sleep_for(std::chrono::seconds(random_seconds));
+				}
+				else	// else skip to next rolling immediately: no sleep
+				{
+					std::clog << "\n\nSkipped\n\n";
+				}
 			}
 		}
 	private:
@@ -361,6 +403,32 @@ namespace dmm
 				entries.push_back(entry);
 			}
 			return entries;
+		}
+	private:
+		// Wrap fs::rename
+		void rename (const fs::path from, const fs::path to, std::error_code & ec) const
+		{
+			contract_assert(! __rename_just_called_and_ok);
+			{
+				// If the path "from" is found in the ignore file list,
+				//		fs::rename will be not executed.
+				for (const fs::path & path: __ignore_files)
+				{
+					if (path.lexically_normal() == from.lexically_normal())
+					{
+						std::clog
+							<< "\n\nOh, Note: This path is in the ignore list:\n"
+							<< from
+							<< "\n\n"
+						;
+						ec = std::error_code{};
+					}
+				}
+			}
+
+			fs::rename(from, to, ec);
+			if (! ec)
+				const_cast<bool &>(__rename_just_called_and_ok) = true;
 		}
 	private:
 		bool move(const std::string & from, const std::string & to) const
@@ -375,7 +443,7 @@ namespace dmm
 			std::string msg = "Move from "s + dmm::quoted{}(entry.path().string())
 				+ " to " + dmm::quoted{}(to) + " : ";
 			std::error_code ec;
-			fs::rename(entry, to / entry.path().filename(), ec);
+			this->rename(entry, to / entry.path().filename(), ec);
 			if (ec)
 			{
 				try
@@ -393,14 +461,22 @@ namespace dmm
 				};
 			}
 			// else
-			msg += "successful.";
-			msg += "  At "s + dmm::now{}();
+			if (__rename_just_called_and_ok)
+			{
+				msg += "successful.";
+				msg += "  At "s + dmm::now{}();
+			}
+			else
+			{
+				msg += "ignored, rolling will be skipped to next immediately.";
+				msg += "  At "s + dmm::now{}();
+			}
 			std::clog << msg << std::endl;
 			return true;
 		}
 		void restart() const
 		{
-			auto cmd = __args[6];
+			auto cmd = __args[__args.size()-1];
 			auto cmd_exec = proc::environment::find_executable(cmd);
 			auto killall = proc::environment::find_executable("killall");
 
@@ -472,7 +548,12 @@ namespace dmm
 					+++++++++++++++++
 
 					command:
-					dmm <source dir> <work dir> <upgrade dir> <time interval> <Max limit of random time interval> <cmd>
+					dmm <source dir> <work dir> <upgrade dir>
+						<time interval> <Max limit of random time interval>
+						[ignore file list]
+						<cmd>
+
+					* The option order can not be changed;
 
 					<time interval> format:
 							seconds
