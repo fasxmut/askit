@@ -6,570 +6,85 @@
 //
 
 #include <filesystem>
-#include <boost/process.hpp>
 #include <iostream>
-#include <vector>
-#include <string>
-#include <sstream>
+#include <boost/process.hpp>
+#include <boost/asio.hpp>
+#include <boost/filesystem.hpp>
 #include <regex>
 #include <iomanip>
+#include <sstream>
+#include <vector>
 #include <random>
-#include <thread>
 #include <chrono>
-#include <boost/asio.hpp>
-#include <stdfloat>
+
 
 using std::string_literals::operator""s;
 namespace fs = std::filesystem;
-namespace proc = boost::process;
+namespace bfs = boost::filesystem;
+namespace bpp = boost::process;
 namespace asio = boost::asio;
 
 namespace dmm
 {
-	const std::float32_t min_hours = 2;
-	const std::float32_t max_hours = 4;
-	const int limit_high_secs = 1200;
-	const int limit_low_secs = 600;
+	constexpr std::float32_t min_hours = 1;
+	constexpr std::float32_t max_hours = 2;
+	constexpr int limit_low_minutes = 10;
+	constexpr int limit_high_minutes = 120;
 
-	std::mt19937 rng{std::random_device{}()};
+	const std::string prompt_help = R"(dmm [(--?(h|help))|help])";
 
-	class quoted
-	{
-	public:
-		std::string operator()(const std::string & input) const
-		{
-			std::stringstream io;
-			io << std::quoted(input);
-			return io.str();
-		}
-	};
-
-	enum class exc_action
-	{
-		error,
-		show_help
-	};
-
-	class dmm_error
-	{
-	private:
-		dmm::exc_action __ea;
-		std::string __error;
-	public:
-		dmm_error(const dmm::exc_action ea__, const std::string & err__ = ""):
-			__ea{ea__},
-			__error{err__}
-		{
-		}
-		dmm::exc_action action() const
-		{
-			return __ea;
-		}
-		std::string what() const
-		{
-			return __error;
-		}
-	};
-
-	class now
-	{
-	public:
-		std::string operator()() const
-		{
-			std::string nn = (std::ostringstream{} << std::chrono::system_clock::now()).str();
-			while (nn.starts_with("\n"))
-				nn = nn.substr(1);
-			while (nn.ends_with("\n"))
-				nn = nn.substr(0, nn.size()-1);
-			return nn;
-		}
-	};
+	inline std::mt19937 rng{std::mt19937{std::random_device{}()}()};
 }	// namespace dmm
 
 namespace dmm
 {
-	class dear_manager
+	// string MANager, path MANager.
+	class man
 	{
-	private:
-		const std::vector<std::string> __args;
-	private:
-		std::vector<fs::path> __ignore_files{};
-		bool __rename_just_called_and_ok{false};
 	public:
-		dear_manager():
-			__args{}
+		static std::string to_string(const auto & value)
 		{
+			return (std::ostringstream{} << value).str();
 		}
-		dear_manager(int argc__, char ** argv__):
-			__args{argv__, argv__+argc__}
+		static std::string quoted(const auto & value)
 		{
+			return (std::ostringstream{} << std::quoted(dmm::man::to_string(value))).str();
 		}
 	public:
-		void start()
+		static fs::path normalize_path(const fs::path & path)
 		{
-			this->test_args();
-			this->test_dirs();
-			this->record_and_test_ignore_files();
-			this->test_cmds();
-			this->run();
-		}
-	private:
-		void test_args() const
-		{
-			// test args count
-			{
-				if (__args.size() < 2)
-				{
-					throw dmm::dmm_error{
-						dmm::exc_action::show_help
-					};
-				}
-
-				if (__args.size() < 7u)
-				{
-					throw dmm::dmm_error{
-						dmm::exc_action::error,
-						"Requires at least 6 args!"
-					};
-				}
-			}
-
-			// test directories
-			{
-				for (int i=1; i<3; ++i)
-				{
-					if (! fs::is_directory(__args[i]))
-					{
-						throw dmm::dmm_error{
-							dmm::exc_action::error,
-							"Not an existed directory: "s
-								+
-							dmm::quoted{}(__args[i])
-						};
-					}
-				}
-			}
-		}
-	private:
-		void test_dirs() const
-		{
-			fs::directory_entry source{__args[1]};
-			fs::directory_entry work{__args[2]};
-			fs::directory_entry upgrade{__args[3]};
-			if (source == work || source == upgrade || work == upgrade)
-			{
-				throw dmm::dmm_error{
-					dmm::exc_action::error,
-					"Requires source-dir, work-dir, and upgrade-dir not the same dir!"
+			if (! fs::exists(path))
+				throw std::runtime_error{
+					"This program requires all paths exist! (error in dmm::man::normalize_path) .\n"s
+					+
+					"This path does not exist:\n"
+					+
+					dmm::man::to_string(path)
 				};
-			}
-		}
-	private:
-		void record_and_test_ignore_files()
-		{
-			for (auto i=6u; i<__args.size()-1u; ++i)
-			{
-				__ignore_files.emplace_back(__args[i]);
-			}
-			std::clog << "Ignore Files Count: " << __ignore_files.size() << std::endl;
-			for (const auto & igfn: __ignore_files)
-			{
-				if ( ! fs::exists(igfn))
-					throw dmm::dmm_error{
-						dmm::exc_action::error,
-						"This file is set to be ignored, but it does not exist: \""s
-						+
-						igfn.string()
-						+ "\""
-					};
-				std::clog << "This file will be ignored: " << igfn << std::endl;
-			}
-			std::clog << std::endl;
-		}
-	private:
-		void test_cmds() const
-		{
-			auto cmd = __args[__args.size()-1];
-			auto cmd_exec = proc::environment::find_executable(cmd);
-			if (cmd_exec.empty())
-			{
-				throw dmm::dmm_error{
-					dmm::exc_action::error,
-					"Command not found: "s + dmm::quoted{}(cmd)
-				};
-			}
-
-			auto killall = proc::environment::find_executable("killall");
-			if (killall.empty())
-			{
-				throw dmm::dmm_error{
-					dmm::exc_action::error,
-					"Command not found: "s + dmm::quoted{}("killall")
-				};
-			}
-		}
-	private:
-		int stoi(const std::string & str) const
-		{
-			std::string str2 = str;
-			while (str2.starts_with("0"))
-			{
-				str2 = str2.substr(1);
-			}
-
-			if (str2.empty())
-				return 0;
-			try
-			{
-				int r = std::stoi(str2);
-				if (r < 0)
-					throw "(1)"s;
-				if (str2 != std::to_string(r))
-					throw "(2)"s;
-				return r;
-			}
-			catch (const std::string & e)
-			{
-				throw dmm::dmm_error{
-					dmm::exc_action::error,
-					"Time format error: conversion error: "s + dmm::quoted{}(str) + "\t" + e
-				};
-			}
-		}
-	private:
-		// hours, minutes, seconds
-		std::tuple<int, int, int> make_interval() const
-		{
-			std::regex re{"([0-9]*):?([0-9]*):?([0-9]*)"};
-			std::smatch sm;
-			bool status = std::regex_match(__args[4], sm, re);
-			if (! status)
-				throw dmm::dmm_error{
-					dmm::exc_action::error,
-					"<time interval> format Error!"
-				};
-			int hours{0}, minutes{0}, seconds{0};
-			if (sm[2].str().empty())
-			{
-				seconds = this->stoi(sm[1]);
-			}
-			else if (sm[3].str().empty())
-			{
-				minutes = this->stoi(sm[1]);
-				seconds = this->stoi(sm[2]);
-			}
-			else
-			{
-				hours = this->stoi(sm[1]);
-				minutes = this->stoi(sm[2]);
-				seconds = this->stoi(sm[3]);
-			}
-
-			{
-				std::float32_t real_hours = hours + minutes / 60.0f32 + seconds / 3600.0f32;
-				if (real_hours < dmm::min_hours || real_hours > dmm::max_hours)
-				{
-					throw dmm::dmm_error{
-						dmm::exc_action::error,
-						"Time limit:\n"s
-							+
-						"Min hours: "s + std::to_string(dmm::min_hours) + "\n"
-							+
-						"Max hours: "s + std::to_string(dmm::max_hours)
-					};
-				}
-			}
-
-			return {
-				hours,
-				minutes,
-				seconds
-			};
-		}
-	private:
-		int get_random_seconds() const
-		{
-			{
-				int max_random_seconds = this->stoi(__args[5]);
-				if (
-					max_random_seconds < dmm::limit_low_secs
-					||
-					max_random_seconds > dmm::limit_high_secs
-				)
-				{
-					throw dmm::dmm_error{
-						dmm::exc_action::error,
-						"ERROR: Requires "s
-							+
-						std::to_string(dmm::limit_high_secs)
-							+
-						" <=  <Max limit of random time interval>  <= "s
-							+
-						std::to_string(dmm::limit_high_secs) + " (seconds)"
-					};
-				}
-				return dmm::rng() % max_random_seconds;
-			}
-
-		}
-	private:
-		void run() const
-		{
-			auto [source, work, upgrade] = std::tuple{__args[1], __args[2], __args[3]};
-
-			{
-				for (std::string & str:
-					{
-						std::ref(source),
-						std::ref(work),
-						std::ref(upgrade)
-					}
-				)
-				{
-					if (! str.ends_with("/"))
-						str += "/";
-				}
-			}
-
-			std::clog << "source-dir, work-dir, upgrade-dir:\n"
-				<< source << "\n" << work << "\n" << upgrade << "\n"
-				<< std::endl;
-
-			auto [hours, minutes, seconds] = this->make_interval();
-			std::clog << "hours, minutes, seconds:\n";
-			std::clog << hours << ", " << minutes << ", " << seconds << std::endl << std::endl;
-
-			int random_seconds = this->get_random_seconds();
-			std::clog << "First random_seconds:\n" << random_seconds << "\n\n";
-
-			while (true)
-			{
-				if (this->is_task_finished())
-				{
-					std::clog << "Task is already finished!" << std::endl;
-					return;
-				}
-#if true
-				{
-					if (! this->move(work, upgrade))
-						this->move(source, work);
-				}
-#else
-				if (dmm::rng()%3 == 0)
-				{
-					if (! this->move(source, work))
-						this->move(work, upgrade);
-				}
-				else
-				{
-					if (! this->move(work, upgrade))
-						this->move(source, work);
-				}
-#endif
-				this->restart();
-
-				if (__rename_just_called_and_ok)
-				{
-					const_cast<bool &>(__rename_just_called_and_ok) = false;
-
-					random_seconds = this->get_random_seconds();
-
-					std::clog
-						<< "\n\n---\n---\n"
-						<< "Next rolling after:\n\t\t"
-						<< "hours:minutes:seconds = "
-						<< hours << ":" << minutes << ":" << seconds+random_seconds
-						<< " ..."
-						<< std::endl
-					;
-
-					std::this_thread::sleep_for(std::chrono::hours(hours));
-					std::this_thread::sleep_for(std::chrono::minutes(minutes));
-					std::this_thread::sleep_for(std::chrono::seconds(seconds));
-					std::this_thread::sleep_for(std::chrono::seconds(random_seconds));
-				}
-				else	// else skip to next rolling immediately: no sleep
-				{
-					std::clog << "\n\nSkipped\n\n";
-				}
-			}
-		}
-	private:
-		std::vector<fs::directory_entry> get_entries(const std::string & dir) const
-		{
-			std::vector<fs::directory_entry> entries;
-			for (const auto & entry: fs::directory_iterator{dir})
-			{
-				entries.push_back(entry);
-			}
-			return entries;
-		}
-	private:
-		// Wrap fs::lexically_normal
-		fs::path lexically_normal(const fs::path & path) const
-		{
-			std::string tmp = path.lexically_normal();
+			std::string tmp = path.lexically_normal().string();
 			if (tmp != "/" && tmp.ends_with("/"))
 			{
 				tmp = tmp.substr(0, tmp.size()-1);
 			}
 			return fs::path{tmp};
 		}
-	private:
-		// Wrap fs::rename
-		void rename (const fs::path from, const fs::path to, std::error_code & ec) const
-		{
-			contract_assert(! __rename_just_called_and_ok);
-			{
-				// If the path "from" is found in the ignore file list,
-				//		fs::rename will be not executed.
-				for (const fs::path & path: __ignore_files)
-				{
-					if (this->lexically_normal(path) == this->lexically_normal(from))
-					{
-						std::clog
-							<< "\n\nOh, Note: This path is in the ignore list:\n"
-							<< from
-							<< "\n\n"
-						;
-						ec = std::error_code{};
-						return;
-					}
-				}
-			}
+	};
+}	// namespace dmm
 
-			fs::rename(from, to, ec);
-			if (! ec)
-			{
-				std::clog << "********\n";
-				std::clog << "********\n";
-				std::clog << "********\n";
-				std::clog << "** Moved OK:\n";
-				std::clog << "** \t" << from << " => " << to << std::endl;
-				std::clog << "********\n";
-				std::clog << "********\n";
-				std::clog << "********\n";
-				const_cast<bool &>(__rename_just_called_and_ok) = true;
-			}
-		}
-	private:
-		bool move(const std::string & from, const std::string & to) const
-		{
-			auto entries = this->get_entries(from);
-			if (entries.size() < 1)
-			{
-				return false;
-			}
-			auto id = dmm::rng() % entries.size();
-			const auto & entry = entries[id];
-			std::string msg = "Move from "s + dmm::quoted{}(entry.path().string())
-				+ " to " + dmm::quoted{}(to) + " : ";
-			std::error_code ec;
-			this->rename(entry, to / entry.path().filename(), ec);
-			if (ec)
-			{
-				try
-				{
-					throw std::system_error{ec};
-				}
-				catch (const std::exception & e)
-				{
-					msg += " failed: "s + e.what();
-					msg += "  At "s + dmm::now{}();
-				}
-				throw dmm::dmm_error{
-					dmm::exc_action::error,
-					msg
-				};
-			}
-			// else
-			if (__rename_just_called_and_ok)
-			{
-				msg += "successful.";
-				msg += "  At "s + dmm::now{}();
-				std::clog << msg << std::endl;
-				return true;
-			}
-			else
-			{
-				msg += "ignored, rolling will be skipped to next immediately.";
-				msg += "  At "s + dmm::now{}();
-				std::clog << msg << std::endl;
-				return false;
-			}
-		}
-		void restart() const
-		{
-			auto cmd = __args[__args.size()-1];
-			auto cmd_exec = proc::environment::find_executable(cmd);
-			auto killall = proc::environment::find_executable("killall");
-
-			// stop cmd
-			{
-				std::clog << "Re-killing " << cmd << ", wait ...\n";
-				for (int i=0; i<20; ++i)
-				{
-					asio::thread_pool pool;
-					proc::process proc{
-						pool.get_executor(),
-						killall,
-						{
-							cmd_exec.string()
-						}
-					};
-					proc.wait();
-					pool.join();
-					std::clog
-						<< dmm::now{}()
-						<< "  "
-						<< std::flush;
-					std::this_thread::sleep_for(std::chrono::milliseconds(100));
-				}
-				std::clog << "\n\nNote: Killing finished!  " << dmm::now{}()
-					<< std::endl
-					<< std::endl;
-			}
-
-			// start cmd
-			{
-				asio::thread_pool pool;
-				proc::process proc{
-					pool.get_executor(),
-					cmd_exec,
-					{
-					}
-				};
-				std::clog << "Starting ...\n";
-				proc.wait();
-				std::clog << "Starting ... (2)\n";
-				pool.join();
-				std::clog << "Started!  At "
-					<< dmm::now{}()
-					<< std::endl;
-			}
-		}
-		bool is_task_finished() const
-		{
-			if (
-				this->get_entries(__args[1]).size() < 1u
-					&&
-				this->get_entries(__args[2]).size() < 1u
-			)
-			{
-				return true;
-			}
-			return false;
-		}
-	private:
-		std::string get_help_i() const
+namespace dmm
+{
+	class help
+	{
+	public:
+		static std::string get_help_i()
 		{
 			return std::format(
 				R"(
-					+++++++++++++++++
+					++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 					+ dmm
 					+++++++++++++++++
 					+ Help Menu
-					+++++++++++++++++
+					++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 					command:
 					dmm <source dir> <work dir> <upgrade dir>
@@ -579,32 +94,34 @@ namespace dmm
 
 					* The option order can not be changed;
 
+					Get Help:
+					{}
+
+					++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 					<time interval> format:
-							seconds
-							minutes:seconds
 							hours:minutes:seconds
-							(only unsigned int allowed)
+							(only positive int allowed)
 						Limit:
 							Min: {} hours, Max: {} hours;
 
 						For example:
-							324            - 324 seconds
-							300:400        - 300 minutes + 400 seconds
 							300:400:500    - 300 hours + 400 minutes + 500 seconds
 
 					<Max limit of random time interval> format:
-							seconds
-							(only unsigned int allowed)
-						Limit low: {} secs  ,
-						Limit high: {} secs .
+							minutes
+							(only positive int allowed)
+						Limit low: {} minutes ,
+						Limit high: {} minutes .
 				)",
+				dmm::prompt_help,
 				dmm::min_hours,
 				dmm::max_hours,
-				dmm::limit_low_secs,
-				dmm::limit_high_secs
+				dmm::limit_low_minutes,
+				dmm::limit_high_minutes
 			);
 		}
-		std::string shift(const std::string & input, int num) const
+		static std::string shift(const std::string & input, int num)
 		{
 			std::stringstream io;
 			io << input << std::flush;
@@ -650,9 +167,597 @@ namespace dmm
 			return result;
 		}
 	public:
-		std::string get_help() const
+		static std::string get_help()
 		{
-			return this->shift(this->get_help_i(), 5);
+			return dmm::help::shift(dmm::help::get_help_i(), 5);
+		}
+	};	// class help
+}	// namespace dmm
+
+namespace dmm
+{
+	enum class exception_action
+	{
+		fatal_error,
+		help,
+		prompt_help,
+		ignore,	// ignore this exception
+		processed,	// exception processed (but not ignore)
+		unknown
+	};
+
+	class dmm_error
+	{
+	private:
+		const dmm::exception_action __action;
+		const std::string __msg;
+	public:
+		dmm_error() = delete;
+		dmm_error(
+			const dmm::exception_action action__,
+			const std::string & msg__
+		) noexcept:
+			__action{action__},
+			__msg{msg__}
+		{
+		}
+		virtual ~dmm_error() noexcept
+		{
+		}
+	public:
+		dmm::exception_action action() const noexcept
+		{
+			return __action;
+		}
+		std::string what() const
+		{
+			return __msg;
+		}
+	public:
+		void print() const noexcept
+		{
+			switch (this->action())
+			{
+			case dmm::exception_action::fatal_error:
+				this->print_what();
+				return;
+			case dmm::exception_action::help:
+				std::cerr << dmm::help::get_help();
+				return;
+			case dmm::exception_action::prompt_help:
+				this->print_what();
+				std::cerr << "\nGet Help:\n" << dmm::prompt_help << std::endl;
+				break;
+			case dmm::exception_action::ignore:
+			case dmm::exception_action::processed:
+				return;
+			case dmm::exception_action::unknown:
+			default:
+				this->print_what();
+			}
+		}
+	private:
+		void print_what() const noexcept
+		{
+			std::cerr << "==============================\n";
+			std::cerr << "==============================\n";
+			std::cerr << "ERROR:\n";
+			std::cerr << this->what() << std::endl;
+		}
+	};
+
+	class fatal_error:
+		virtual public dmm::dmm_error
+	{
+	public:
+		fatal_error(const std::string & msg__) noexcept:
+			dmm::dmm_error{dmm::exception_action::fatal_error, msg__}
+		{
+		}
+	};
+
+	class help_exception:
+		virtual public dmm::dmm_error
+	{
+	public:
+		help_exception() noexcept:
+			dmm::dmm_error{dmm::exception_action::help, ""}
+		{
+		}
+	};
+
+	class prompt_help_exception:
+		virtual public dmm::dmm_error
+	{
+	public:
+		prompt_help_exception(const std::string & tips__) noexcept:
+			dmm::dmm_error{dmm::exception_action::prompt_help, tips__}
+		{
+		}
+	};
+
+	class processed_exception:
+		virtual public dmm::dmm_error
+	{
+	public:
+		processed_exception():
+			dmm::dmm_error{dmm::exception_action::processed, ""}
+		{
+		}
+	};
+}	// namespace dmm
+
+namespace dmm
+{
+	class args
+	{
+	private:
+		const std::vector<std::string> __args;
+	private:
+		std::string __source_dir{};
+		std::string __work_dir{};
+		std::string __upgrade_dir{};
+
+		std::string __interval{};
+		int __hours{}, __minutes{}, __seconds{};
+
+		std::string __max_interval_limit_random{};
+		std::float32_t __random_minutes_limit{};
+
+		std::string __cmd_string{};
+		bfs::path __cmd{};
+
+		std::vector<fs::path> __ignore_files{};
+	public:
+		args() = delete;
+		args(int argc__, char ** argv__):
+			__args{argv__, argv__ + argc__}
+		{
+			this->do_args();
+		}
+		virtual ~args()
+		{
+		}
+	public:
+		void print_log() const
+		{
+			std::clog << "args count: " << __args.size() << std::endl;
+			std::clog << "__source_dir: " << __source_dir << std::endl;
+			std::clog << "__work_dir: " << __work_dir << std::endl;
+			std::clog << "__upgrade_dir: " << __upgrade_dir << std::endl;
+			std::clog << "__interval: " << __interval << std::endl;
+			std::clog << "\t__hours: " << __hours << std::endl;
+			std::clog << "\t__minutes: " << __minutes << std::endl;
+			std::clog << "\t__seconds : " << __seconds << std::endl;
+			std::clog << "__max_interval_limit_random: " << __max_interval_limit_random << std::endl;
+			std::clog << "\t__random_minutes_limit: " << __random_minutes_limit << std::endl;
+			std::clog << "__ignore_files:\n";
+			for (const auto & path: __ignore_files)
+				std::clog << "\t" << path << std::endl;
+			std::clog << "__cmd_string: " << __cmd_string << std::endl;
+			std::clog << "\t__cmd: " << __cmd << std::endl;
+		}
+	public:
+		std::string source_dir() const {return __source_dir;}
+		std::string work_dir() const {return __work_dir;}
+		std::string upgrade_dir() const {return __upgrade_dir;}
+		int hours() const {return __hours;}
+		int minutes() const {return __minutes;}
+		int seconds() const {return __seconds;}
+		std::float32_t random_minutes_limit() const {return __random_minutes_limit;}
+		bfs::path cmd() const {return __cmd;}
+		std::string cmd_string() const {return __cmd_string;}
+		const std::vector<fs::path> & ignore_files() const {return __ignore_files;}
+	private:
+		void do_args()
+		{
+			this->check_help();
+			this->set_parameters();
+			this->check_parameters();
+			this->check_and_make_times();
+			this->check_and_make_cmd();
+			this->check_ignore_files();
+		}
+	private:
+		void check_help() const
+		{
+			if (__args.size() < 2u)
+				throw dmm::help_exception{};
+			if (__args.size() == 2u)
+			{
+				std::regex re{"((--?(h|help))|help)"};
+				std::smatch sm;
+				if (std::regex_match(__args[1], sm, re))
+					throw dmm::help_exception{};
+			}
+		}
+	private:
+		void set_parameters()
+		{
+			this->set_value(__source_dir, 1);
+			this->set_value(__work_dir, 2);
+			this->set_value(__upgrade_dir, 3);
+			this->set_value(__interval, 4);
+			this->set_value(__max_interval_limit_random, 5);
+			this->set_value(__cmd_string, __args.size()-1);
+			this->set_ignore_files(6, __args.size() - 2);
+		}
+	private:
+		void set_value(std::string & variable, int index)
+		{
+			if (index >= (int)__args.size())
+				throw dmm::prompt_help_exception{
+					"The " + dmm::man::to_string(index) + "th parameter is not specifiled,\n"
+					+
+					"All options are required."
+				};
+			variable = __args[index];
+		}
+	private:
+		void check_parameters() const
+		{
+			this->check_dirs();
+		}
+	private:
+		void check_dirs() const
+		{
+			this->dir_exists("__source_dir", __source_dir);
+			this->dir_exists("__work_dir", __work_dir);
+			this->dir_exists("__upgrade_dir", __upgrade_dir);
+
+			{
+				fs::path d1 = dmm::man::normalize_path(__source_dir);
+				fs::path d2 = dmm::man::normalize_path(__work_dir);
+				fs::path d3 = dmm::man::normalize_path(__upgrade_dir);
+				if (d1 == d2 || d1 == d3 || d2 == d3)
+				{
+					throw dmm::prompt_help_exception{
+						"Requires __source_dir, __work_dir, __upgrade_dir not the same dir!"
+					};
+				}
+			}
+		}
+	private:
+		void dir_exists(const std::string & var_name, const std::string & var_value) const
+		{
+			if (! fs::exists(var_value))
+				throw dmm::prompt_help_exception{
+					"The "s
+					+
+					var_name
+					+
+					" does not exist: "
+					+
+					dmm::man::quoted(var_value)
+				};
+
+			if (! fs::is_directory(var_value))
+				throw dmm::prompt_help_exception{
+					"The "s
+					+
+					var_name
+					+
+					" is not a directory: "
+					+
+					dmm::man::quoted(var_value)
+				};
+		}
+	private:
+		void check_and_make_times()
+		{
+			this->check_and_make_interval();
+			this->check_and_make_max_random_minutes();
+		}
+	private:
+		void check_and_make_interval()
+		{
+			std::regex re{"([0-9]+):([0-9]+):([0-9]+)"};
+			std::smatch sm;
+			if (! std::regex_match(__interval, sm, re))
+				throw dmm::prompt_help_exception{
+					"<time interval> format error!"
+				};
+
+			__hours = std::stoi(sm[1]);
+			__minutes = std::stoi(sm[2]);
+			__seconds = std::stoi(sm[3]);
+
+			{
+				auto total_hours =
+					__hours +
+					__minutes/60.0
+					+
+					__seconds/3600.0
+				;
+				if (total_hours < dmm::min_hours || total_hours > dmm::max_hours)
+					throw dmm::prompt_help_exception{
+						"Total hours of <time interval> is out of range!"
+					};
+			}
+		}
+	private:
+		void check_and_make_max_random_minutes()
+		{
+			{
+				std::regex re{"[0-9]+"};
+				std::smatch sm;
+				if (! std::regex_match(__max_interval_limit_random, sm, re))
+					throw dmm::prompt_help_exception{
+						"Requires <Max limit of random time interval> is a positive integral!"
+					};
+			}
+			__random_minutes_limit = std::stoi(__max_interval_limit_random);
+			if (
+				__random_minutes_limit < dmm::limit_low_minutes
+				||
+				__random_minutes_limit > dmm::limit_high_minutes
+			)
+			{
+				throw dmm::prompt_help_exception{
+					"<Max limit of random time interval> is out of range!"
+				};
+			}
+		}
+	private:
+		void check_and_make_cmd()
+		{
+			__cmd = bpp::environment::find_executable(__cmd_string);
+			if (__cmd.empty())
+				throw dmm::prompt_help_exception{
+					"Command not found: "s
+					+
+					dmm::man::quoted(__cmd_string)
+				};
+		}
+	private:
+		void set_ignore_files(int from, int to)
+		{
+			for (int i=from; i<=to; ++i)
+				__ignore_files.emplace_back(__args[i]);
+		}
+	private:
+		void check_ignore_files() const
+		{
+			for (const fs::path & path: __ignore_files)
+			{
+				if (! fs::exists(path))
+					throw dmm::prompt_help_exception{
+						"This file in the list of __ignore_files does not exist:\n"s
+						+
+						dmm::man::to_string(path)
+					};
+			}
+		}
+	};
+}	// namespace dmm
+
+namespace dmm
+{
+	class dear_manager
+	{
+	private:
+		const dmm::args & __args;
+	public:
+		dear_manager() = delete;
+		dear_manager(const dmm::args & args__):
+			__args{args__}
+		{
+		}
+		virtual ~dear_manager()
+		{
+		}
+	public:
+		void start()
+		{
+			while (true)
+			{
+				this->move();
+				this->restart();
+				this->sleep();
+			}
+		}
+	private:
+		void move()
+		{
+			bool status = this->work_to_upgrade();
+			if (! status)
+				status = this->source_to_work();
+			if (! status)
+				throw dmm::fatal_error{
+					"No task, all tasks might be finished!"
+				};
+		}
+	private:
+		bool is_ignore_file(const fs::path & path) const
+		{
+			for (const fs::path & pp: __args.ignore_files())
+			{
+				if (dmm::man::normalize_path(path) == dmm::man::normalize_path(pp))
+				{
+					std::clog << "Get an ignore file: " << path
+						<< "\n\tsearch another file ..." << std::endl;
+					return true;
+				}
+			}
+			return false;
+		}
+	private:
+		auto retrieve_list(const fs::path & from_dir) const
+		{
+			std::vector<fs::path> tmp_list;
+			for (
+				const fs::directory_entry & entry:
+					fs::directory_iterator{from_dir}
+			)
+			{
+				if (! this->is_ignore_file(entry))
+					tmp_list.emplace_back(entry);
+			}
+			return tmp_list;
+		}
+	private:
+		bool do_move(const fs::path & from_dir, const fs::path & to_dir) const
+		{
+			auto tmp_list = this->retrieve_list(from_dir);	// create tmp_list
+			std::clog << "tmp_list:\n";
+			for (const auto & pp: tmp_list)
+				std::clog << "\t" << pp << std::endl;
+			std::clog << "---\n";
+
+			if (tmp_list.empty())
+				return false;
+
+			const fs::path move_file = tmp_list[dmm::rng() % tmp_list.size()];
+			//	Destroy tmp_list after getting the move_file
+			tmp_list = {};
+
+			std::clog << "Prepared move file " << move_file << " to dir "
+				<< to_dir << std::endl;
+
+			return this->rename(move_file, to_dir);
+		}
+	private:
+		bool rename(const fs::path & from_name, const fs::path & to_dir) const
+		{
+			if (! fs::exists(from_name))
+				throw dmm::fatal_error{
+					"Bad: this should not happen:\n"s
+					+
+					"the path to be moved does not exist:\n"
+					+
+					dmm::man::to_string(from_name)
+				};
+			if (! fs::exists(to_dir) || ! fs::is_directory(to_dir))
+				throw dmm::fatal_error{
+					"Bad: this should not happen:\n"s
+					+
+					"The destination dir to be moved to is invalid:\n"s
+					+
+					dmm::man::to_string(to_dir)
+				};
+			return this->do_rename(from_name, to_dir/from_name.filename());
+		}
+		bool do_rename(const fs::path & from_name, const fs::path & to_name) const
+		{
+			std::error_code ec;
+			fs::rename(from_name, to_name, ec);
+			std::clog << "**********************************************************************\n";
+			if (! ec)
+			{
+				std::clog
+					<< "** Moved OK: "
+					<< from_name << "\t=>\t" << to_name
+					<<std::endl;
+			}
+			else
+			{
+				std::clog
+					<< "** Moving Failed: "
+					<< from_name << "\t=>\t" << to_name
+					<<std::endl;
+				;
+			}
+			std::clog << "**\n** " << std::chrono::system_clock::now() << std::endl;
+			std::clog << "**********************************************************************\n";
+			return ! ec;
+		}
+	private:
+		bool work_to_upgrade()
+		{
+			return this->do_move(__args.work_dir(), __args.upgrade_dir());
+		}
+	private:
+		bool source_to_work()
+		{
+			return this->do_move(__args.source_dir(), __args.work_dir());
+		}
+	private:
+		void restart()
+		{
+			{
+				for (int i=0; i<20; ++i)
+				{
+					asio::thread_pool pool;
+					boost::system::error_code ec;
+					auto killall = bpp::environment::find_executable("killall");
+					if (killall.empty())
+						throw dmm::fatal_error{
+							"Command not found: \"killall\""
+						};
+					bpp::process proc{
+						pool.get_executor(),
+						killall,
+						{
+							__args.cmd().string()
+						},
+						ec
+					};
+					proc.wait();
+					pool.join();
+					std::clog << "killall " << __args.cmd() << " ..." << std::endl;
+					std::this_thread::sleep_for(std::chrono::milliseconds(50));
+				}
+			}
+
+			{
+				int i;
+				for (i=1; i<6; ++i)
+				{
+					boost::system::error_code ec;
+					asio::thread_pool pool;
+					bpp::process proc{
+						pool.get_executor(),
+						__args.cmd(),
+						{
+						},
+						ec
+					};
+					proc.wait();
+					pool.join();
+					std::clog << "Trying to restart " << __args.cmd() << "... ";
+					std::clog << i << " times ... ";
+					if (! ec || ec == asio::error::eof)
+					{
+						std::clog << "Successful!";
+						break;
+					}
+				}
+				if (i > 5)
+					std::clog << "Failed!";
+				std::clog << std::endl;
+				std::clog << __args.cmd() << " is restarted at "
+					<< std::chrono::system_clock::now() << std::endl;
+			}
+		}
+	private:
+		void sleep()
+		{
+			{
+				const unsigned long total_seconds =
+					__args.hours() * 3600
+					+
+					__args.minutes() * 60
+					+
+					__args.seconds()
+					+
+					dmm::rng() % static_cast<unsigned long>(__args.random_minutes_limit() * 60)
+				;
+
+				const unsigned long hours = total_seconds / 3600;
+
+				const unsigned long tmp = total_seconds - hours*3600;
+
+				const unsigned long minutes = tmp / 60;
+				const unsigned long seconds = (tmp - minutes * 60);
+
+				std::clog << "Please wait for " << hours << ":" << minutes << ":" << seconds
+					<< std::endl;
+
+				std::clog << "(Waiting is started at " << std::chrono::system_clock::now()
+					<< ")"
+					<< std::endl;
+				std::this_thread::sleep_for(std::chrono::seconds(total_seconds));
+			}
 		}
 	};	// class dear_manager
 }	// namespace dmm
@@ -663,43 +768,56 @@ int main(int argc, char ** argv)
 	{
 		try
 		{
-			dmm::dear_manager dm{argc, argv};
-			dm.start();
-			std::clog << "WARNING: Program stopped." << std::endl;
-		}
-		catch (const dmm::dmm_error & e)
-		{
-			switch (e.action())
+			try
 			{
-			case dmm::exc_action::error:
-				throw std::runtime_error{
-					"=====\n"s
-					"=====\n"s
-					"=====\n"s
-					"=====\n"s
-						+
-					"ERROR:\n"
-						+
-					e.what() + "\n\n"
+				dmm::args args{argc, argv};
+				args.print_log();
+				std::clog << "---------------------------------------------------------------\n";
+				dmm::dear_manager dm{args};
+				dm.start();
+			}
+			catch (const dmm::dmm_error & e)
+			{
+				throw e;
+			}
+			catch (const std::system_error & e)
+			{
+				throw dmm::fatal_error{
+					"Error Code: "s + dmm::man::to_string(e.code()) + "\n"
+					+
+					"Error: "s + e.what() + "\n"
 				};
-			case dmm::exc_action::show_help:
-				throw std::runtime_error{
-					dmm::dear_manager{}.get_help()
+			}
+			catch (const std::exception & e)
+			{
+				throw dmm::fatal_error{
+					"Error: "s + e.what() + "\n"
+				};
+			}
+			catch (...)
+			{
+				throw dmm::fatal_error{
+					"Error: Fatal Error.\n"
 				};
 			}
 		}
-		catch (const std::exception & e)
+		catch (const dmm::dmm_error & e)
 		{
-			throw std::runtime_error{""s + e.what()};
-		}
-		catch (...)
-		{
-			throw std::runtime_error{dmm::dear_manager{}.get_help()};
+			e.print();
+			std::cerr << std::endl;
+			throw dmm::processed_exception{};
 		}
 	}
-	catch (const std::exception & help)
+	catch (const dmm::processed_exception & e)
 	{
-		std::clog << help.what() << std::endl;
+		return 1;
+	}
+	catch (...)
+	{
+		std::cerr << "==========\n";
+		std::cerr << "==========\n";
+		std::cerr << "Error: Bad Error!" << std::endl << std::endl;
+		return 2;
 	}
 }
 
