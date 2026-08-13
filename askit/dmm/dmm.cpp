@@ -26,10 +26,10 @@ namespace asio = boost::asio;
 
 namespace dmm
 {
-	constexpr std::float32_t min_hours = 0.7f32;	// 0.7*60: 0:42:0
-	constexpr std::float32_t max_hours = 1.4f32;	// 1.4*60: 1:24:0
-	constexpr int limit_low_minutes = 10;
-	constexpr int limit_high_minutes = 90;	// 1:30:0
+	constexpr std::float32_t min_hours = 0.5f32;	// 0:30:0
+	constexpr std::float32_t max_hours = 12.0f32;	// 12:0:0
+	constexpr int limit_low_minutes = 10;	// 0:10:0
+	constexpr int limit_high_minutes = 720;	// 12:0:0
 
 	const std::string prompt_help = R"(dmm [(--?(h|help))|help])";
 
@@ -559,9 +559,21 @@ namespace dmm
 	private:
 		void move()
 		{
-			bool status = this->work_to_upgrade();
-			if (! status)
-				status = this->source_to_work();
+			bool status = true;
+
+			if (dmm::rng()%2 == 0)
+			{
+				if (! this->source_to_work())
+					if (! this->work_to_upgrade())
+						status = false;
+			}
+			else
+			{
+				if (! this->work_to_upgrade())
+					if (! this->source_to_work())
+						status = false;
+			}
+
 			if (! status)
 				throw dmm::fatal_error{
 					"No task, all tasks might be finished!"
