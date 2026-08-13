@@ -712,11 +712,11 @@ namespace dmm
 						},
 						ec
 					};
-					proc.wait();
+					int status = proc.wait();
 					pool.join();
 					std::clog << "Trying to restart " << __args.cmd() << "... ";
 					std::clog << i << " times ... ";
-					if (! ec || ec == asio::error::eof)
+					if (status == 0 && (! ec || ec == asio::error::eof))
 					{
 						std::clog << "Successful!";
 						break;
