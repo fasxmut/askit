@@ -748,10 +748,10 @@ namespace dmm
 								},
 								ec
 							};
+							std::this_thread::sleep_for(std::chrono::milliseconds(150));
 							int status = proc.wait();
 							pool.join();
 
-							std::this_thread::sleep_for(std::chrono::milliseconds(150));
 							status_list.push_back(status);
 						}
 					}
@@ -791,9 +791,9 @@ namespace dmm
 							},
 							ec
 						};
+						std::this_thread::sleep_for(std::chrono::milliseconds(150));
 						status = proc.wait();
 						pool.join();
-						std::this_thread::sleep_for(std::chrono::milliseconds(150));
 						if (status == 0)
 							break;
 					}
