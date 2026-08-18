@@ -19,6 +19,7 @@
 #include <memory>
 #include <random>
 #include <future>
+#include <functional>
 #include <boost/process.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/asio.hpp>
@@ -571,7 +572,7 @@ namespace dmm
 				{
 					std::unique_lock<std::mutex> lock{dmm::log_mutex};
 					std::clog
-						<< __id_string << ": all tasks are finished! Next circling ..."
+						<< __id_string << ": all tasks are finished! Next cycling ..."
 						<< std::endl;
 					lock.unlock();
 				}
@@ -718,7 +719,14 @@ namespace dmm
 				}
 			}
 
+			std::function<void()>
+				this_lambda_stop_program
+					=
+			[self = this->shared_from_this(), &this_lambda_stop_program]
 			{ // Stop
+				static int counter = 0;
+				++counter;
+
 				auto killall = bpp::environment::find_executable("killall");
 				if (killall.empty())
 					throw dmm::fatal_error{
@@ -739,7 +747,7 @@ namespace dmm
 								pool.get_executor(),
 								killall,
 								{
-									__args->cmd().string()
+									self->__args->cmd().string()
 								},
 								bpp::process_stdio
 								{
@@ -758,8 +766,8 @@ namespace dmm
 
 					{
 						std::unique_lock<std::mutex> lock{dmm::restart_mutex};
-						std::clog << __id_string << "=>\nTrying to stop "
-							<< __args->cmd() << " ... ";
+						std::clog << self->__id_string << "=>\nTrying to stop "
+							<< self->__args->cmd() << " ... ";
 						bool status = false;
 						{
 							bool b1 = false, b2 = false;
@@ -774,10 +782,28 @@ namespace dmm
 							status = b1 && b2;
 						}
 						std::clog << std::endl;
-						std::clog << "Killed:.. " << status << std::endl;
+						std::clog
+							<< "Killed: " << status
+							<< " ... cycling times: " << counter
+							<< std::endl;
+
+						if (! status)
+						{
+							if (counter > 10)
+							{
+								throw dmm::fatal_error{
+									"Stopping program failed after 10 times of cycling ..., "s
+									+
+									"need human help."
+								};
+							}
+							// else
+							this_lambda_stop_program();
+						}
 					}
 				}
-			}
+			};	// end: this_lambda_stop_program
+			this_lambda_stop_program();
 
 			{ // Start
 				int status;
