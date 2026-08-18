@@ -729,13 +729,17 @@ namespace dmm
 				{
 					std::vector<int> status_list;
 
+					std::string out_string;
+					std::string err_string;
+
 					{
 						std::unique_lock<std::mutex> lock{dmm::restart_mutex};
 						for (int i=0; i<25; ++i)
 						{
 							boost::system::error_code ec;
 							asio::thread_pool pool;
-							asio::readable_pipe ignore{pool.get_executor()};
+							asio::readable_pipe rp_out{pool.get_executor()};
+							asio::readable_pipe rp_err{pool.get_executor()};
 							bpp::process proc{
 								pool.get_executor(),
 								killall,
@@ -744,13 +748,25 @@ namespace dmm
 								},
 								bpp::process_stdio
 								{
-									.out = ignore,
-									.err = ignore
+									.out = rp_out,
+									.err = rp_err
 								},
 								ec
 							};
 							std::this_thread::sleep_for(std::chrono::milliseconds(150));
 							int status = proc.wait();
+
+							asio::read(
+								rp_out,
+								asio::dynamic_buffer(out_string),
+								ec
+							);
+							asio::read(
+								rp_err,
+								asio::dynamic_buffer(err_string),
+								ec
+							);
+
 							pool.join();
 
 							status_list.push_back(status);
@@ -775,9 +791,19 @@ namespace dmm
 							status = b1 && b2;
 						}
 						std::clog << std::endl;
-						std::clog
-							<< "Killed: " << status
-							<< std::endl;
+						std::clog << "Killed: " << (status?"good":"weak");
+						if (! status)
+						{
+							std::clog
+								<< "; last out log: "
+								<< (out_string.empty()?"empty"s:out_string)
+							;
+							std::clog
+								<< "; last err log: "
+								<< (err_string.empty()?"empty"s:err_string)
+							;
+						}
+						std::clog << std::endl;
 					}
 				}
 			}	// end: stop
