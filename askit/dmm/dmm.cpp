@@ -761,14 +761,20 @@ namespace dmm
 						std::clog << __id_string << "=>\nTrying to stop "
 							<< __args->cmd() << " ... ";
 						bool status = false;
-						for (int x: status_list)
 						{
-							std::clog << x << " ";
-							if (x == 0)
-								status = true;
+							bool b1 = false, b2 = false;
+							for (int x: status_list)
+							{
+								std::clog << x << " ";
+								if (x == 0)
+									b1 = true;
+								if (x == 1)
+									b2 = true;
+							}
+							status = b1 && b2;
 						}
 						std::clog << std::endl;
-						std::clog << "Killed: " << status << std::endl;
+						std::clog << "Killed:.. " << status << std::endl;
 					}
 				}
 			}
