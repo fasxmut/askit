@@ -597,7 +597,11 @@ namespace dmm
 			while (seconds > hint_interval)
 			{
 				lock.lock();
-				std::clog << __id_string << " left " << seconds/60.0 << " minutes ...\n";
+				std::clog
+					<< __id_string << " left " << seconds/60.0 << " minutes ... "
+					<< std::chrono::system_clock::now() << " [now]"
+					<< std::endl
+				;
 				lock.unlock();
 				seconds -= hint_interval;
 				std::this_thread::sleep_for(std::chrono::seconds(hint_interval));
@@ -606,7 +610,12 @@ namespace dmm
 			if (seconds > 0)
 			{
 				lock.lock();
-				std::clog << __id_string << " left " << seconds/60.0 << " minutes ...\n";
+				std::clog
+					<< __id_string << " left " << seconds/60.0 << " minutes ... "
+					<< std::chrono::system_clock::now() << " [now]"
+					<< " Nearly complete!"
+					<< std::endl
+				;
 				lock.unlock();
 				std::this_thread::sleep_for(std::chrono::seconds(seconds));
 			}
@@ -756,20 +765,28 @@ namespace dmm
 							std::this_thread::sleep_for(std::chrono::milliseconds(150));
 							int status = proc.wait();
 
+							std::string out_buf{};
+							std::string err_buf{};
+
 							asio::read(
 								rp_out,
-								asio::dynamic_buffer(out_string),
+								asio::dynamic_buffer(out_buf),
 								ec
 							);
 							asio::read(
 								rp_err,
-								asio::dynamic_buffer(err_string),
+								asio::dynamic_buffer(err_buf),
 								ec
 							);
 
 							pool.join();
 
 							status_list.push_back(status);
+
+							if (! out_buf.empty())
+								out_string += "["s + out_buf + "] ";
+							if (! err_buf.empty())
+								err_string += "["s + err_buf + "] ";
 						}
 					}
 
