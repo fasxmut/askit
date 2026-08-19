@@ -1167,6 +1167,13 @@ int main(int argc, char ** argv)
 	}
 	catch (const dmm::exception & e)
 	{
+		// NOTE:
+		//	The dmm::exception has an implicit and not pointed out feature:
+		//		If the exception action is fatal_error,
+		//			the e.print() will always have no exception,
+		//				then it will return true always in such case.
+		//	The "up-stream" "throw" is just the "fatal_error" throw.
+		//
 		[[maybe_unused]] bool status = e.print();
 	}
 }
