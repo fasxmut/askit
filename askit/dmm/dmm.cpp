@@ -857,7 +857,8 @@ namespace dmm
 					std::clog << "##################################################\n";
 					std::clog << "# " << __id_string << "=>\n# Restart " << __args->cmd()
 						<< ((status==0)?" OK:":" failed:")
-						<< "\tTried " << i << " times!\n";
+						<< "\tTried " << i << " times! "
+						<< std::chrono::system_clock::now() << " [now]\n";
 					std::clog << "##################################################\n";
 					std::clog << "\n\n"
 						<< __id_string << " Restarting task at: " << std::chrono::system_clock::now()
