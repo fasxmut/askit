@@ -96,16 +96,16 @@ namespace dmm
 			return __action;
 		}
 	private:
-		void print_what() const noexcept
+		void print_what(std::ostream & stream) const noexcept
 		{
-			std::clog << "----------------------------------------------------------------------\n";
-			std::clog << "----------------------------------------------------------------------\n";
-			std::clog << "ERROR:\n";
-			std::clog << this->what() << std::endl << std::endl;
+			stream << "----------------------------------------------------------------------\n";
+			stream << "----------------------------------------------------------------------\n";
+			stream << "ERROR:\n";
+			stream << this->what() << std::endl << std::endl;
 		}
 	private:
 		// Has exception
-		void print_i() const
+		void print_i(std::ostream & stream) const
 		{
 			switch (this->action())
 			{
@@ -114,14 +114,14 @@ namespace dmm
 				std::clog << std::endl;
 				return;
 			case dmm::exception_action::prompt_help:
-				this->print_what();
-				std::clog << dmm::help{}.prompt_help() << std::endl;
-				std::clog << std::endl;
+				this->print_what(stream);
+				stream << dmm::help{}.prompt_help() << std::endl;
+				stream << std::endl;
 				return;
 			case dmm::exception_action::fatal_error:
-				this->print_what();
-				std::clog << "Fatal Error!" << std::endl;
-				std::clog << std::endl;
+				this->print_what(stream);
+				stream << "Fatal Error!" << std::endl;
+				stream << std::endl;
 				return;
 			case dmm::exception_action::ignore:
 			case dmm::exception_action::none:
@@ -812,11 +812,11 @@ namespace dmm
 						if (! status)
 						{
 							std::clog
-								<< "; last out log: "
+								<< "; out log: "
 								<< (out_string.empty()?"empty"s:out_string)
 							;
 							std::clog
-								<< "; last err log: "
+								<< "; err log: "
 								<< (err_string.empty()?"empty"s:err_string)
 							;
 						}
@@ -1099,7 +1099,7 @@ namespace dmm
 			try
 			{
 				std::unique_lock<std::mutex> lock{dmm::log_mutex};
-				this->print_i();
+				this->print_i(std::cerr);
 			}
 			catch (...)
 			{
@@ -1111,7 +1111,7 @@ namespace dmm
 			try
 			{
 				std::unique_lock<std::mutex> lock{dmm::log_mutex};
-				e.print_i();
+				e.print_i(std::cerr);
 			}
 			catch (...)
 			{
