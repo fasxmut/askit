@@ -83,5 +83,16 @@ If you have two long strings s1 and s2, you can test if they are equal or not, i
 
 aeq s1 s2
 
-Result is true of false.
+Result is true or false.
+
+Example:
+
+```
+$ aeq 0.1122334455 0.1122334455			# Treated as string, not floating point.
+true
+$ aeq "0.1122334455" 0.1122334455
+true
+$ aeq "0.112233445" "0.1122334455"
+false
+```
 
