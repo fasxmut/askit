@@ -74,3 +74,14 @@ Change permissions of many files to default permissions, written in c++ std::fil
 * Do not use this program to change system files permissions, such as /etc, /bin ; or take it at your own risk .
 * Developer(s) does not take any responsibility for any damage or loss .
 
+Aeq
+----------------------------------------
+
+Command: aeq - Assert Equivalent.
+
+If you have two long strings s1 and s2, you can test if they are equal or not, instead of checking by eyes:
+
+aeq s1 s2
+
+Result is true of false.
+
