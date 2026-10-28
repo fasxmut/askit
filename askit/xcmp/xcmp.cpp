@@ -33,6 +33,8 @@ namespace xcmp
 		}
 	};
 
+	using size_type = unsigned long;
+
 	class compare
 	{
 	private:
@@ -84,23 +86,28 @@ namespace xcmp
 					bool status = std::regex_match(str, results, re);
 					contract_assert(status);
 				}
-				zzff[0] = this->normalize_number(results[1]);
-				zzff[1] = this->normalize_number(results[2]);
+				zzff[0] = results[1];
+				zzff[1] = results[2];
+			}
+			{
+				xcmp::size_type pos = 0;
+				for (; pos<zzff[0].size(); ++pos)
+				{
+					if (zzff[0][pos] != '0')
+						break;
+				}
+				if (pos >= zzff[0].size())
+					zzff[0] = "0";
+				else
+					zzff[0] = zzff[0].substr(pos);
+			}
+			{
+				while (zzff[1].ends_with("0"))
+					zzff[1] = zzff[1].substr(0, zzff[1].size() - 1);
+				if (zzff[1].empty())
+					zzff[1] = "0";
 			}
 			return zzff;
-		}
-		std::string normalize_number(const std::string & str) const
-		{
-			unsigned long pos = 0;
-			for (;pos<str.size(); ++pos)
-			{
-				if (str[pos] != '0')
-					break;
-			}
-			if (pos >= str.size())	// This covers case: str.empty()
-				return "0";
-			else
-				return str.substr(pos);
 		}
 		std::string compare_numbers(const std::string & s1, const std::string & s2) const
 		{
@@ -118,11 +125,10 @@ namespace xcmp
 	private:
 		std::string compare_strings(const std::string & s1, const std::string & s2) const
 		{
-			using size_type = unsigned long;
-			const size_type size1 = s1.size();
-			const size_type size2 = s2.size();
-			const size_type size = ((size1 < size2) ? size1 : size2);
-			for (size_type i=0; i<size; ++i)
+			const xcmp::size_type size1 = s1.size();
+			const xcmp::size_type size2 = s2.size();
+			const xcmp::size_type size = ((size1 < size2) ? size1 : size2);
+			for (xcmp::size_type i=0; i<size; ++i)
 			{
 				if (s1[i] < s2[i])
 				{
