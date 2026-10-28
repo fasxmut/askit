@@ -5,16 +5,16 @@
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 #
 
-constant name : $(name)/aeq ;
+constant name : $(name)/xcmp ;
 
 echo "Build $(name) ..." ;
 
-exe aeq : aeq.cpp ;
+exe xcmp : xcmp.cpp ;
 
 install
 	install
 :
-	aeq
+	xcmp
 :
 	<location>$(prefix)/bin/
 ;

@@ -22,7 +22,7 @@ projects =
 	asidt
 	dmm
 	dperm
-	aeq
+	xcmp
 ;
 
 for prj in $(projects)

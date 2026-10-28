@@ -74,25 +74,46 @@ Change permissions of many files to default permissions, written in c++ std::fil
 * Do not use this program to change system files permissions, such as /etc, /bin ; or take it at your own risk .
 * Developer(s) does not take any responsibility for any damage or loss .
 
-Aeq
+Xcmp
 ----------------------------------------
 
-Command: aeq - Assert Equivalent.
+Compare two strings or numbers, the result is one of:
 
-If you have two long strings s1 and s2, you can test if they are equal or not, instead of checking by eyes:
+* eq	-	equal
+* lt	-	less than
+* gt	-	greater than
+* na	-	not comparable
 
-aeq s1 s2
+Rules:
 
-Result is true or false.
+* The string is number if:
+	* Any place character is digit or dot;
+	* The string contains maximum one dot.
+* If both inputs are numbers, compare them as double.
+* No matter how many zero the number starts with, the number is always decimal.
 
-Example:
+Examples:
 
 ```
-$ aeq 0.1122334455 0.1122334455			# Treated as string, not floating point.
-true
-$ aeq "0.1122334455" 0.1122334455
-true
-$ aeq "0.112233445" "0.1122334455"
-false
+$ xcmp c++ c++
+eq
+$ xcmp 0.1122334455 0.1122334455
+eq
+$ xcmp "0.1122334455" 0.1122334455
+eq
+$ xcmp "0.112233445" "0.1122334455"
+lt
+$ xcmp 5 2
+gt
+$ xcmp 5.0 5
+eq
+$ xcmp abCd A
+gt
+$ xcmp 000009 9.0000000000000000000
+eq
+$ xcmp 0.9 .9
+eq
+$ xcmp 9. 9
+eq
 ```
 
