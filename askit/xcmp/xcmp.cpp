@@ -22,7 +22,7 @@ namespace xcmp
 	public:
 		is_number(const std::string & str)
 		{
-			std::regex re{"[0-9]*\\.?[0-9]*"};
+			std::regex re{"[+-]?[0-9]*\\.?[0-9]*"};
 			std::smatch sm;
 			__result = std::regex_match(str, sm, re);
 		}
@@ -78,9 +78,9 @@ namespace xcmp
 	private:
 		std::vector<std::string> split_number(const std::string & str) const
 		{
-			std::vector<std::string> zzff(2u);
+			std::vector<std::string> zzff(3u);
 			{
-				std::regex re{"([0-9]*)\\.?([0-9]*)"};
+				std::regex re{"([+-]?)([0-9]*)\\.?([0-9]*)"};
 				std::smatch results;
 				{
 					bool status = std::regex_match(str, results, re);
@@ -88,39 +88,81 @@ namespace xcmp
 				}
 				zzff[0] = results[1];
 				zzff[1] = results[2];
+				zzff[2] = results[3];
+			}
+			{
+				if (zzff[0].empty())
+					zzff[0] = "+";
 			}
 			{
 				xcmp::size_type pos = 0;
-				for (; pos<zzff[0].size(); ++pos)
+				for (; pos<zzff[1].size(); ++pos)
 				{
-					if (zzff[0][pos] != '0')
+					if (zzff[1][pos] != '0')
 						break;
 				}
-				if (pos >= zzff[0].size())
-					zzff[0] = "0";
+				if (pos >= zzff[1].size())
+					zzff[1] = "0";
 				else
-					zzff[0] = zzff[0].substr(pos);
+					zzff[1] = zzff[1].substr(pos);
 			}
 			{
-				while (zzff[1].ends_with("0"))
-					zzff[1] = zzff[1].substr(0, zzff[1].size() - 1);
-				if (zzff[1].empty())
-					zzff[1] = "0";
+				while (zzff[2].ends_with("0"))
+					zzff[2] = zzff[2].substr(0, zzff[2].size() - 1);
+				if (zzff[2].empty())
+					zzff[2] = "0";
+			}
+			{
+				bool status = (zzff.size() == 3u);
+				contract_assert(status);
+				status = (zzff[0] == "+" || zzff[0] == "-");
+				contract_assert(status);
 			}
 			return zzff;
 		}
 		std::string compare_numbers(const std::string & s1, const std::string & s2) const
 		{
 			auto v1 = this->split_number(s1);
-			contract_assert(v1.size() == 2u);
 			auto v2 = this->split_number(s2);
-			contract_assert(v2.size() == 2u);
 
-			std::string result = this->compare_strings(v1[0], v2[0]);
-			if (result == "eq")
-				result = this->compare_strings(v1[1], v2[1]);
+			bool neg = false;
 
-			return result;
+			{
+				if (v1[0] == "-" && v2[0] == "+")
+					return "lt";
+				if (v1[0] == "+" && v2[0] == "-")
+					return "gt";
+				if (v1[0] == "-" && v2[0] == "-")
+					neg = true;
+			}
+
+			std::string re =
+				[&]
+				-> std::string
+				{
+					if (v1[1].size() > v2[1].size())
+						return "gt";
+					if (v1[1].size() < v2[1].size())
+						return "lt";
+
+					std::string result = this->compare_strings(v1[1], v2[1]);
+					if (result == "eq")
+						result = this->compare_strings(v1[2], v2[2]);
+
+					return result;
+				}
+				()
+			;
+
+			if (neg)
+			{
+				if (re == "lt")
+					re = "gt";
+				if (re == "gt")
+					re = "lt";
+			}
+
+			return re;
 		}
 	private:
 		std::string compare_strings(const std::string & s1, const std::string & s2) const

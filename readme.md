@@ -87,8 +87,9 @@ Compare two strings or numbers, the result is one of:
 Rules:
 
 * The string is number if:
-	* Any place character is digit or dot;
-	* The string contains maximum one dot.
+	* Required: Any place character is digit or dot
+	* Required: The string contains maximum one dot
+	* Optional: The staring starts with + or -
 * If both inputs are numbers, compare them as double.
 * No matter how many zero the number starts with, the number is always decimal.
 
