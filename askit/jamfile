@@ -23,6 +23,7 @@ projects =
 	dmm
 	dperm
 	xcmp
+	pptg
 ;
 
 for prj in $(projects)

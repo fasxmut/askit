@@ -118,3 +118,8 @@ $ xcmp 9. 9
 eq
 ```
 
+pptg
+----------------------------------------
+
+pptg - Phrase protector table generator.
+
