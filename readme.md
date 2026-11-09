@@ -121,5 +121,22 @@ eq
 pptg
 ----------------------------------------
 
+#### pptg
+
 pptg - Phrase protector table generator.
+
+#### ipptg
+
+ipptg - Improved pptg
+
+```
+Usage:
+
+ipptg <input words> <input random-words-file .txt> <output "map-data.txt">
+		# output data file: map-data.txt
+		# output "key index" to console
+
+ipptg recover <input "key index"> <input "map-data.txt">
+# output words to console
+```
 

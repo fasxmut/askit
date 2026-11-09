@@ -11,10 +11,13 @@ echo "Build $(name) ..." ;
 
 exe pptg : pptg.cpp ;
 
+exe ipptg : ipptg.cpp ;
+
 install
 	install
 :
 	pptg
+	ipptg
 :
 	<location>$(prefix)/bin/
 ;
